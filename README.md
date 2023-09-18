@@ -1,4 +1,4 @@
-# electric-starter-app
+# a-soda-shop-or-something
 
 ```
 $ clj -A:dev -X user/main
