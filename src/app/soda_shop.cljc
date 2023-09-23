@@ -1,8 +1,11 @@
 (ns app.soda-shop
   (:require
    contrib.str
+   [app.card :as card]
    [app.menu :as menu]
    [app.super-button :as sb]
+   [app.tabs :as tabs]
+   [app.style :as style]
    [hyperfiddle.electric :as e]
    [hyperfiddle.electric-dom2 :as dom]
    [hyperfiddle.electric-ui4 :as ui]))
@@ -11,7 +14,7 @@
 (e/def orders (e/server (e/watch !orders)))
 
 #?(:clj (def !order-number (atom 1000)))
-(e/def order-number (e/server (e/watcj !order-number)))
+(e/def order-number (e/server (e/watch !order-number)))
 
 #?(:clj (def !notification (atom nil)))
 (e/def notification (e/server (e/watch !notification)))
@@ -78,10 +81,6 @@
                  (cart-item cart-item-id menu-item)))
         remove-zero-quantity)))
             
-(def text-style
-  {:color       "#8C8C8C"
-   :text-shadow "1px 1px 2px #ffffff, -1px -1px 2px #b8b8b8"})
-
 (def grid-style
   {:display               "grid" 
    :grid-template-columns "repeat(4, 1fr)" 
@@ -94,22 +93,18 @@
 (e/defn Menu
   [!cart !drink]
   (dom/div
-    (dom/h2
-      (dom/style text-style)
-      (dom/text "Menu"))
-    (dom/div
-      (dom/style grid-style)
-      (e/server
-        (e/for-by :id [menu-item menu/items]
-          (e/client
-            (sb/SuperButton.
-             (e/fn []
-               (case (:category menu-item)
-                 "drink" (reset! !drink (as-drink menu-item))
-                 "treat" (swap! !cart update-cart menu-item inc)))
-             (e/fn []
-               (dom/text (:name menu-item)))
-             {:margin "10px"})))))))
+    (dom/style grid-style)
+    (e/server
+      (e/for-by :id [menu-item menu/items]
+        (e/client
+          (sb/SuperButton.
+           (e/fn []
+             (case (:category menu-item)
+               "drink" (reset! !drink (as-drink menu-item))
+               "treat" (swap! !cart update-cart menu-item inc)))
+           (e/fn []
+             (dom/text (:name menu-item)))
+           {:margin "10px"}))))))
 
 (defn add-in-name
    [id]
@@ -162,9 +157,9 @@
 
 (e/defn QuantityWidget
   [quantity increase-fn decrease-fn]
-  (let [style {:width            "50px"
-               :height           "50px"
-               :border-radius    "50%"}]
+  (let [style {:width         "50px"
+               :height        "50px"
+               :border-radius "50%"}]
     (dom/div
       (dom/props {:class "button"})
       (dom/style
@@ -177,7 +172,7 @@
        style)
       (dom/div
         (dom/style
-         (merge text-style
+         (merge style/text
                 {:width           "40px"
                  :height          "50px"
                  :font-size       "24px"
@@ -195,32 +190,30 @@
   [!drink drink]
   (e/for-by first [[id add-in] (:add-ins drink)]
     (e/client
-      (dom/div
-        (dom/style
-         (merge
-          card-style
-          {:display         "flex"
-           :align-items     "center"
-           :justify-content "space-between"}))
-        (QuantityWidget.
-         (:quantity add-in)
-         (e/fn []
-           (e/client
-             (inc-add-in-qty! !drink id)))
-         (e/fn []
-           (e/client
-             (dec-add-in-qty! !drink id))))
-        (dom/h3
-          (dom/text
-           (e/server (add-in-name id))))
-        (dom/div
-          (sb/SuperButton.
-           (e/fn []
-             (e/client
-               (remove-add-in! !drink id)))
-           (e/fn []
-             (dom/text "remove"))
-           {:height "50px"}))))))
+      (card/Card.
+       (e/fn []
+         (QuantityWidget.
+          (:quantity add-in)
+          (e/fn []
+            (e/client
+              (inc-add-in-qty! !drink id)))
+          (e/fn []
+            (e/client
+              (dec-add-in-qty! !drink id))))
+         (dom/h3
+           (dom/text
+            (e/server (add-in-name id))))
+         (dom/div
+           (sb/SuperButton.
+            (e/fn []
+              (e/client
+                (remove-add-in! !drink id)))
+            (e/fn []
+              (dom/text "remove"))
+            {:height "50px"})))
+       {:display         "flex"
+        :align-items     "center"
+        :justify-content "space-between"}))))
 
 (defn inc-cart-item-qty!
   [!cart item]
@@ -238,15 +231,15 @@
 (def section-style
   {:margin-top    "20px"
    :margin-bottom "20px"
-   :color         "#8C8C8C"
-   :text-shadow   "1px 1px 2px #ffffff, -1px -1px 2px #b8b8b8"
-   :background    "#e0e0e0"
+   :color         "#394a56"
+   :text-shadow   "1px 1px 2px #ffffff, -1px -1px 2px #d1d9e6"
+   :background    "#e9edf0"
    :border-radius "10px"
    :padding       "10px"
    :overflow-y    "auto"
    :max-height    "300px"
    :max-width     "800px"
-   :box-shadow    "inset 5px 5px 10px #b8b8b8, inset -5px -5px 10px #ffffff"})
+   :box-shadow    "inset 5px 5px 10px #d1d9e6, inset -5px -5px 10px #ffffff"})
 
 (defn empty-cart!
   [!cart]
@@ -259,55 +252,43 @@
     (dom/div
       (BodyContent.))))
 
-(def card-style
-  {:color            "#8C8C8C"
-   :text-shadow      "1px 1px 2px #ffffff, -1px -1px 2px #b8b8b8"
-   :background-color "#e0e0e0"
-   :border           "none"
-   :border-radius    "12px"
-   :box-shadow       "7px 7px 14px #b8b8b8, -7px -7px 14px #ffffff"
-   :margin           "20px 30px"
-   :font-size        "18px"
-   :outline          "none"
-   :padding          "20px"})
-
 (e/defn CurrentOrderListItem
   [!cart {:keys [item id]}]
-  (dom/div
-    (dom/style card-style)
-    (dom/div
-      (dom/style
-       {:display         "flex"
-        :flex-direction  "column"
-        :min-height      "50px"
-        :align-items     "flex-start"
-        :justify-content "flex-start"})
-      (dom/div
-        (dom/style
-         {:display         "flex"
-          :justify-content "space-between"
-          :align-items     "center"
-          :width           "100%"})
-        (QuantityWidget.
-         (:quantity item)
-         (e/fn []
-           (e/client
-             (inc-cart-item-qty! !cart item)))
-         (e/fn []
-           (e/client
-             (dec-cart-item-qty! !cart item))))
-        (dom/div
-          (dom/style text-style)
-          (dom/h3 (dom/text (:name item)))
-          (AddInList. item))
-        (dom/div
-          (sb/SuperButton.
-           (e/fn []
-             (e/client
-               (remove-item-from-cart! !cart id)))
-           (e/fn []
-             (dom/text "remove"))
-           {:height "50px"}))))))
+  (card/Card.
+   (e/fn []
+     (dom/div
+       (dom/style
+        {:display         "flex"
+         :flex-direction  "column"
+         :min-height      "50px"
+         :align-items     "flex-start"
+         :justify-content "flex-start"})
+       (dom/div
+         (dom/style
+          {:display         "flex"
+           :justify-content "space-between"
+           :align-items     "center"
+           :width           "100%"})
+         (QuantityWidget.
+          (:quantity item)
+          (e/fn []
+            (e/client
+              (inc-cart-item-qty! !cart item)))
+          (e/fn []
+            (e/client
+              (dec-cart-item-qty! !cart item))))
+         (dom/div
+           (dom/style style/text)
+           (dom/h3 (dom/text (:name item)))
+           (AddInList. item))
+         (dom/div
+           (sb/SuperButton.
+            (e/fn []
+              (e/client
+                (remove-item-from-cart! !cart id)))
+            (e/fn []
+              (dom/text "remove"))
+            {:height "50px"})))))))
 
 (defn notify!
   [message]
@@ -348,42 +329,38 @@
    (e/fn []
      (when (not-empty orders)
        (e/for-by :order-id [{:keys [order-id items]} orders]
-         (dom/div
-           (dom/style card-style)
-           (dom/h3
-             (dom/style text-style)
-             (dom/text (str "Order " order-id ":")))
-           (e/for-by :id [item items]
-             (dom/div
-               (dom/style {:padding "10px"})
-               (dom/div
-                 (dom/style
-                  {:display         "flex"
-                   :justify-content "space-between"
-                   :padding         "5px"})
-                 (dom/span
-                   (dom/style text-style)
-                   (dom/text (:name item)))
-                 (dom/span
-                   (dom/style text-style)
-                   (dom/text (str "Quantity: " (:quantity item)))))
-               (when-let [add-ins (:add-ins item)]
-                 (dom/div
-                   (dom/style {:padding-left "20px"})
-                   (AddInList. item)))))))))))
+         (card/Card.
+          (e/fn []
+            (dom/h3
+              (dom/style style/text)
+              (dom/text (str "Order " order-id ":")))
+            (e/for-by :id [item items]
+              (dom/div
+                (dom/style {:padding "10px"})
+                (dom/div
+                  (dom/style
+                   {:display         "flex"
+                    :justify-content "space-between"
+                    :padding         "5px"})
+                  (dom/span
+                    (dom/style style/text)
+                    (dom/text (:name item)))
+                  (dom/span
+                    (dom/style style/text)
+                    (dom/text (str "Quantity: " (:quantity item)))))
+                (when-let [add-ins (:add-ins item)]
+                  (dom/div
+                    (dom/style {:padding-left "20px"})
+                    (AddInList. item))))))))))))
 
 (e/defn AddIns
   [!drink drink-name]
   (dom/div
-    (dom/style text-style)
+    (dom/style style/text)
     (dom/h2
       (dom/text "Customize " drink-name))
     (dom/div
-      (dom/style
-       (merge
-        grid-style
-        {:margin-bottom "40px"
-         :margin-top    "40px"}))
+      (dom/style grid-style)
       (e/server
         (e/for-by :id [add-in menu/add-ins]
           (e/client
@@ -393,14 +370,14 @@
                  (inc-add-in-qty! !drink (:id add-in)))
                (e/fn []
                  (dom/text (:name add-in)))
-               {:height "100px"}))))))))
+               {:margin "10px"}))))))))
 
 (e/defn CustomizeDrink
   [!cart !drink drink]
   (dom/div
     (AddIns. !drink (:name drink))
     (dom/div
-      (dom/style text-style)
+      (dom/style style/text)
       (Section.
        (e/fn []
          (when (not-empty (:add-ins drink))
@@ -426,21 +403,44 @@
        {:width  "150px"
         :height "50px"}))))
 
+(e/defn Logo []
+  (dom/div
+    (dom/style
+     {:display         "flex"
+      :justify-content "center"
+      :align-items     "center"})
+    (dom/img
+      (dom/props
+       {:src "/images/logo.png"
+        :style {:width  "300px"
+                :height "auto"}}))))
+
+(e/defn NavTabs
+  [!cart !drink]
+  (tabs/TabContainer.
+   {"New Order"
+    (e/fn []
+      (Menu. !cart !drink)
+      (CurrentOrder. !cart))
+    "Placed Order"
+    (e/fn []
+      (PlacedOrders.))}))
+
 (e/defn point-of-sale []
   (e/client
     (dom/div
       (dom/style
        {:display          "flex"
         :justify-content  "center"
-        :background-color "#DADADA"
+        :background-color "#e9edf0"
         :padding          "40px"})
       (let [!cart  (atom {})
             !drink (atom nil)
             drink  (e/watch !drink)]
-        (if drink
-          (CustomizeDrink. !cart !drink drink)
-          (dom/div
-            (Notification.)
-            (Menu. !cart !drink)
-            (CurrentOrder. !cart)
-            (PlacedOrders.)))))))
+        (dom/div
+          (Logo.)
+          (if drink
+            (CustomizeDrink. !cart !drink drink)
+            (dom/div
+              (NavTabs. !cart !drink)
+              (Notification.))))))))
