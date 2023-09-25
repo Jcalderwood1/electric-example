@@ -1,20 +1,21 @@
 (ns app.super-button
   (:require
-   contrib.str
+   [app.color :as color]
+   [app.style :as style]
    [hyperfiddle.electric :as e]
    [hyperfiddle.electric-dom2 :as dom]
    [hyperfiddle.electric-ui4 :as ui]))
 
 (def button-style
-  {:color            "#394a56"
-   :text-shadow      "1px 1px 2px #ffffff, -1px -1px 2px #d1d9e6"
+  {:color            (color/color :text)
+   :text-shadow      style/text-shadow
    :cursor           "pointer"
    :width            "120px"
    :height           "80px"
-   :background-color "#ecf0f3"
+   :background-color (color/color :button)
    :border           "none"
    :border-radius    "12px"
-   :box-shadow       "7px 7px 14px #d1d9e6, -7px -7px 14px #ffffff"
+   :box-shadow       style/box-shadow
    :padding          "10px 20px"
    :font-size        "18px"
    :outline          "none"
@@ -28,7 +29,7 @@
 
 (def button-active-style
   (merge button-style
-         {:box-shadow "inset 5px 5px 10px #d1d9e6, inset -5px -5px 10px #ffffff"}))
+         {:box-shadow (str "inset 5px 5px 10px " (color/color :shadow) ", inset -5px -5px 10px " (color/color :highlight))}))
 
 (e/defn SuperButton
   [on-click body & [style]]
@@ -45,35 +46,14 @@
      (new body))))
 
 (def cta-button-style
-  {:background-color "#DC5078"
+  {:background-color (color/color :call-to-action)
    :border           "none"
    :border-radius    "15px"
    :padding          "10px 20px"
-   :color            "#FFF"
-   :text-shadow      "1px 1px 2px #B43C62, -1px -1px 2px #5a4875" ; Darker shade for text-shadow
-   :font-size        "18px"
-   :box-shadow       "7px 7px 14px #b8b8b8, -7px -7px 14px #ffffff"
-   :outline          "none"
-   :cursor           "pointer"})
-
-(def cta-button-hover-style
-  (merge cta-button-style
-         {:background-color "#C4476F"
-          :color            "#fff"}))
-
-(def cta-button-active-style
-  (merge cta-button-style
-         {:box-shadow "inset 2px 2px 4px rgba(192, 72, 104, 0.5), inset -2px -2px 4px rgba(255, 255, 255, 0.5)"}))
-
-(def cta-button-style
-  {:background-color "#DC5078"
-   :border           "none"
-   :border-radius    "15px"
-   :padding          "10px 20px"
-   :color            "#FFF"
+   :color            (color/color :call-to-action-text)
    :text-shadow      "1px 1px 2px #B43C62, -1px -1px 2px #5a4875"
    :font-size        "18px"
-   :box-shadow       "7px 7px 14px #d1d9e6, -7px -7px 14px #ffffff"
+   :box-shadow       style/box-shadow
    :outline          "none"
    :cursor           "pointer"})
 
@@ -85,7 +65,6 @@
 (def cta-button-active-style
   (merge cta-button-style
          {:box-shadow "inset 2px 2px 4px rgba(192, 72, 104, 0.5), inset -2px -2px 4px rgba(255, 255, 255, 0.5)"}))
-
 
 (e/defn CallToActionButton
   [on-click body & [style]]

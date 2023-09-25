@@ -2,7 +2,9 @@
   (:require
    contrib.str
    [app.card :as card]
+   [app.color :as color]
    [app.menu :as menu]
+   [app.state :as state]
    [app.super-button :as sb]
    [app.tabs :as tabs]
    [app.style :as style]
@@ -16,26 +18,25 @@
 #?(:clj (def !order-number (atom 1000)))
 (e/def order-number (e/server (e/watch !order-number)))
 
-#?(:clj (def !notification (atom nil)))
-(e/def notification (e/server (e/watch !notification)))
+(def notification-style
+  {:position         "fixed"
+   :top              "10px"
+   :right            "10px"
+   :background-color "#D4EDDA"
+   :padding          "20px"
+   :border-radius    "5px"
+   :box-shadow       "0 0 10px rgba(0, 0, 0, 0.1)"})
 
 (e/defn Notification
-  []
-  (when notification
-    (dom/div
-      (dom/style
-       {:position         "fixed"
-        :top              "10px"
-        :right            "10px"
-        :background-color "#D4EDDA"
-        :padding          "20px"
-        :border           "1px solid #C3E6CB"
-        :border-radius    "5px"
-        :box-shadow       "0 0 10px rgba(0, 0, 0, 0.1)"})
-      (dom/text notification)
-      (sb/SuperButton.
-       (e/fn [] (e/server (reset! !notification nil)))
-       (e/fn [] (dom/text "Dismiss"))))))
+  [db]
+  (let [notification (:notification db)]
+    (when notification
+      (dom/div
+        (dom/style notification-style)
+        (dom/text notification)
+        (sb/SuperButton.
+         (e/fn [] (e/client (state/update-db! [:notification] nil)))
+         (e/fn [] (dom/text "Dismiss")))))))
 
 (defn cart-item
   [id menu-item]
@@ -80,7 +81,48 @@
                  cart-item-id
                  (cart-item cart-item-id menu-item)))
         remove-zero-quantity)))
-            
+
+(e/defn DrinkSizeButton
+  [on-click label selected]
+  (sb/SuperButton.
+   on-click
+   (e/fn [] (dom/text (str label "oz")))
+   (merge
+    style/text
+    {:border-radius "25px"
+     :cursor        "pointer"
+     :width         "150px"
+     :height        "50px"}
+    (if (= label selected)
+      {:background-color (color/color :call-to-action)
+       :color            (color/color :call-to-action-text)
+       :box-shadow "inset 4px 4px 8px rgba(255, 255, 255, 0.7), inset -4px -4px 8px rgba(0, 0, 0, 0.2)"}
+      {:background-color "transparent"
+       :color            (color/color :text)
+       :box-shadow       "none"}))))
+
+(e/defn DrinkSizeSelector
+  []
+  (let [!selected-size (atom 16)
+        selected-size  (e/watch !selected-size)]
+    (dom/div
+      (dom/style
+       {:display         "flex"
+        :justify-content "center"
+        :border-radius   "25px"
+        :margin-bottom   "20px"
+        :background      (color/color :base)
+        :box-shadow      (str "inset 5px 5px 10px "
+                              (color/color :shadow)
+                              ", inset -5px -5px 10px "
+                              (color/color :highlight))})
+      (e/for-by identity [size [16 24 32 44]]
+        (dom/div
+          (DrinkSizeButton.
+           (e/fn [] (reset! !selected-size size))
+           size
+           selected-size))))))
+
 (def grid-style
   {:display               "grid" 
    :grid-template-columns "repeat(4, 1fr)" 
@@ -92,26 +134,53 @@
 
 (e/defn Menu
   [!cart !drink]
-  (dom/div
-    (dom/style grid-style)
-    (e/server
-      (e/for-by :id [menu-item menu/items]
-        (e/client
-          (sb/SuperButton.
-           (e/fn []
-             (case (:category menu-item)
-               "drink" (reset! !drink (as-drink menu-item))
-               "treat" (swap! !cart update-cart menu-item inc)))
-           (e/fn []
-             (dom/text (:name menu-item)))
-           {:margin "10px"}))))))
+  (let [!item-type (atom nil)
+        item-type  (e/watch !item-type)]
+    (case item-type
+      :drink (dom/div
+               (DrinkSizeSelector.)
+               (dom/div
+                 (dom/style grid-style)
+                 (e/server
+                   (e/for-by :id [menu-item menu/items]
+                     (e/client
+                       (sb/SuperButton.
+                        (e/fn []
+                          (case (:category menu-item)
+                            "drink" (reset! !drink (as-drink menu-item))
+                            "treat" (swap! !cart update-cart menu-item inc)))
+                        (e/fn []
+                          (dom/text (:name menu-item)))
+                        {:margin "10px"}))))))
+      :treat (dom/text "treat")
+      nil    (dom/div
+               (dom/style
+                {:display         "flex"
+                 :width           "600px"
+                 :justify-content "space-between"})
+               (sb/SuperButton.
+                (e/fn []
+                  (reset! !item-type :drink))
+                (e/fn []
+                  (dom/text "Drink"))
+                {:margin "10px"
+                 :width  "200px"
+                 :height "196px"})
+               (sb/SuperButton.
+                (e/fn []
+                  (reset! !item-type :treat))
+                (e/fn []
+                  (dom/text "Treat"))
+                {:margin "10px"
+                 :width  "200px"
+                 :height "196px"})))))
 
 (defn add-in-name
-   [id]
-   (->> menu/add-ins
-        (filter (fn [x] (= (:id x) id)))
-        first
-        :name))
+  [id]
+  (->> menu/add-ins
+       (filter (fn [x] (= (:id x) id)))
+       first
+       :name))
 
 (e/defn AddInList
   [drink]
@@ -200,9 +269,8 @@
           (e/fn []
             (e/client
               (dec-add-in-qty! !drink id))))
-         (dom/h3
-           (dom/text
-            (e/server (add-in-name id))))
+         (dom/text
+          (e/server (add-in-name id)))
          (dom/div
            (sb/SuperButton.
             (e/fn []
@@ -228,18 +296,22 @@
   (println @!cart)
   (swap! !cart dissoc k))
 
+
+(def section-text-shadow (str "1px 1px 2px " (color/color :highlight) ", -1px -1px 2px " (color/color :shadow)))
+(def section-box-shadow  (str "inset 5px 5px 10px " (color/color :shadow) ", inset -5px -5px 10px " (color/color :highlight)))
+
 (def section-style
   {:margin-top    "20px"
    :margin-bottom "20px"
-   :color         "#394a56"
-   :text-shadow   "1px 1px 2px #ffffff, -1px -1px 2px #d1d9e6"
-   :background    "#e9edf0"
+   :color         (color/color :text)
+   :text-shadow   section-text-shadow
+   :background    (color/color :base)
    :border-radius "10px"
    :padding       "10px"
    :overflow-y    "auto"
    :max-height    "300px"
    :max-width     "800px"
-   :box-shadow    "inset 5px 5px 10px #d1d9e6, inset -5px -5px 10px #ffffff"})
+   :box-shadow    section-box-shadow})
 
 (defn empty-cart!
   [!cart]
@@ -290,9 +362,10 @@
               (dom/text "remove"))
             {:height "50px"})))))))
 
-(defn notify!
-  [message]
-  (reset! !notification message))
+#?(:cljs
+   (defn notify!
+     [message]
+     (state/update-db! [:notification] message)))
 
 (e/defn CurrentOrder
   [!cart]
@@ -316,7 +389,8 @@
                       {:items    (mapv (comp :item second)
                                        (e/client @!cart))
                        :order-id order-number})
-               (notify! (str "Order " order-number " placed successfully!")))))
+               (e/client
+                 (notify! (str "Order " (e/server order-number) " placed successfully!"))))))
          (e/client
            (reset! !cart {})))
        (e/fn []
@@ -407,13 +481,15 @@
   (dom/div
     (dom/style
      {:display         "flex"
-      :justify-content "center"
-      :align-items     "center"})
-    (dom/img
-      (dom/props
-       {:src "/images/logo.png"
-        :style {:width  "300px"
-                :height "auto"}}))))
+      :justify-content "space-between"
+      :align-items     "center"
+      :padding         "10px"})
+    (dom/div
+      (dom/img
+        (dom/props
+         {:src "/images/logo.png"
+          :style {:width  "200px"
+                  :height "auto"}})))))
 
 (e/defn NavTabs
   [!cart !drink]
@@ -426,21 +502,32 @@
     (e/fn []
       (PlacedOrders.))}))
 
+(def navbar-style
+  {:background-color (color/color :base)
+   :box-shadow       style/box-shadow
+   :display          "flex"
+   :justify-content  "space-between"
+   :align-items      "center"
+   :padding          "20px"})
+
 (e/defn point-of-sale []
   (e/client
     (dom/div
       (dom/style
-       {:display          "flex"
-        :justify-content  "center"
-        :background-color "#e9edf0"
-        :padding          "40px"})
-      (let [!cart  (atom {})
-            !drink (atom nil)
-            drink  (e/watch !drink)]
-        (dom/div
-          (Logo.)
+       {:background-color (color/color :base)})
+      (dom/div
+        (dom/style navbar-style)
+        (Logo.))
+      (dom/div
+        (dom/style
+         {:display          "flex"
+          :justify-content  "center"})
+        (let [!cart  (atom {})
+              !drink (atom nil)
+              drink  (e/watch !drink)
+              db     (e/watch state/!db)]
           (if drink
             (CustomizeDrink. !cart !drink drink)
             (dom/div
               (NavTabs. !cart !drink)
-              (Notification.))))))))
+              (Notification. db))))))))

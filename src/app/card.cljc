@@ -1,16 +1,17 @@
 (ns app.card
   (:require
+   [app.color :as color]
+   [app.style :as style]
    [hyperfiddle.electric :as e]
    [hyperfiddle.electric-dom2 :as dom]
    [hyperfiddle.electric-ui4 :as ui]))
 
 (def card-style
-  {:color            "#394a56"
-   :text-shadow      "1px 1px 2px #ffffff, -1px -1px 2px #d1d9e6"
-   :background-color "#ecf0f3"
+  {:text-shadow      style/text-shadow
+   :background-color (color/color :base)
    :border           "none"
    :border-radius    "12px"
-   :box-shadow       "7px 7px 14px #d1d9e6, -7px -7px 14px #ffffff"
+   :box-shadow       style/box-shadow
    :margin           "20px 30px"
    :font-size        "18px"
    :outline          "none"

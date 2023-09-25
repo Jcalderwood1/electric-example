@@ -1,5 +1,6 @@
 (ns app.tabs
   (:require
+   [app.color :as color]
    [app.style :as style]
    [hyperfiddle.electric :as e]
    [hyperfiddle.electric-dom2 :as dom]
@@ -14,7 +15,7 @@
 
 (def active-tab-style
   (merge tab-style
-         {:border-bottom "3px solid #DC5078"}))
+         {:border-bottom (str "3px solid " (color/color :call-to-action))}))
 
 (e/defn Tab
   [tab-name !active-tab active-tab]
