@@ -4,6 +4,7 @@
    [app.card :as card]
    [app.color :as color]
    [app.menu :as menu]
+   [app.notification :as notification]
    [app.state :as state]
    [app.super-button :as sb]
    [app.tabs :as tabs]
@@ -17,26 +18,6 @@
 
 #?(:clj (def !order-number (atom 1000)))
 (e/def order-number (e/server (e/watch !order-number)))
-
-(def notification-style
-  {:position         "fixed"
-   :top              "10px"
-   :right            "10px"
-   :background-color "#D4EDDA"
-   :padding          "20px"
-   :border-radius    "5px"
-   :box-shadow       "0 0 10px rgba(0, 0, 0, 0.1)"})
-
-(e/defn Notification
-  [db]
-  (let [notification (:notification db)]
-    (when notification
-      (dom/div
-        (dom/style notification-style)
-        (dom/text notification)
-        (sb/SuperButton.
-         (e/fn [] (e/client (state/update-db! [:notification] nil)))
-         (e/fn [] (dom/text "Dismiss")))))))
 
 (defn cart-item
   [id menu-item]
@@ -82,98 +63,56 @@
                  (cart-item cart-item-id menu-item)))
         remove-zero-quantity)))
 
-(e/defn DrinkSizeButton
-  [on-click label selected]
-  (sb/SuperButton.
-   on-click
-   (e/fn [] (dom/text (str label "oz")))
-   (merge
-    style/text
-    {:border-radius "25px"
-     :cursor        "pointer"
-     :width         "150px"
-     :height        "50px"}
-    (if (= label selected)
-      {:background-color (color/color :call-to-action)
-       :color            (color/color :call-to-action-text)
-       :box-shadow "inset 4px 4px 8px rgba(255, 255, 255, 0.7), inset -4px -4px 8px rgba(0, 0, 0, 0.2)"}
-      {:background-color "transparent"
-       :color            (color/color :text)
-       :box-shadow       "none"}))))
-
-(e/defn DrinkSizeSelector
-  []
+(e/defn DrinkSizeSelector []
   (let [!selected-size (atom 16)
-        selected-size  (e/watch !selected-size)]
+        selected-size  (e/watch !selected-size)
+        sizes          [16 24 32 44]
+        num-sizes      (count sizes)
+        index-of       (fn [c item] (.indexOf c item))]
     (dom/div
-      (dom/style
-       {:display         "flex"
-        :justify-content "center"
-        :border-radius   "25px"
-        :margin-bottom   "20px"
-        :background      (color/color :base)
-        :box-shadow      (str "inset 5px 5px 10px "
-                              (color/color :shadow)
-                              ", inset -5px -5px 10px "
-                              (color/color :highlight))})
-      (e/for-by identity [size [16 24 32 44]]
+      (dom/props
+       {:class "slider-container"})
+      (.setProperty (.-style dom/node) "--num-sizes" num-sizes)
+      (e/on-unmount #(.removeProperty (.-style dom/node) "--num-sizes"))
+      (dom/div
+        (dom/props {:class "slider-channel"})
+        (let [channel-width (some-> js/document
+                                    (.querySelector ".slider-channel")
+                                    .getBoundingClientRect
+                                    .-width)
+              step-size     (int (/ channel-width num-sizes))]
+          (.setProperty (.-style dom/node) "--step-size" (str step-size "px"))
+          (e/on-unmount #(.removeProperty (.-style dom/node) "--step-size")))
         (dom/div
-          (DrinkSizeButton.
-           (e/fn [] (reset! !selected-size size))
-           size
-           selected-size))))))
-
-(def grid-style
-  {:display               "grid" 
-   :grid-template-columns "repeat(4, 1fr)" 
-   :grid-gap              "1rem" 
-   :justify-content       "center" 
-   :align-items           "center" 
-   :max-width             "800px"
-   :margin                "0 auto"})
+          (dom/props {:class "slider-pill"})
+          (dom/style {:transform (str "translateX(calc(var(--step-size) * " (index-of sizes selected-size) "))")})
+          (dom/text (str selected-size " oz")))
+        (e/for-by identity [size sizes]
+          (dom/div
+            (dom/props {:class "size-label"})
+            (dom/style {:left (str "calc(var(--pill-width) * " (index-of sizes size) ")")})
+            (dom/on "click" (e/fn [e] (.preventDefault e) (reset! !selected-size size)))
+            (dom/text (str size " oz"))))))))
 
 (e/defn Menu
   [!cart !drink]
   (let [!item-type (atom nil)
         item-type  (e/watch !item-type)]
-    (case item-type
-      :drink (dom/div
-               (DrinkSizeSelector.)
-               (dom/div
-                 (dom/style grid-style)
-                 (e/server
-                   (e/for-by :id [menu-item menu/items]
-                     (e/client
-                       (sb/SuperButton.
-                        (e/fn []
-                          (case (:category menu-item)
-                            "drink" (reset! !drink (as-drink menu-item))
-                            "treat" (swap! !cart update-cart menu-item inc)))
-                        (e/fn []
-                          (dom/text (:name menu-item)))
-                        {:margin "10px"}))))))
-      :treat (dom/text "treat")
-      nil    (dom/div
-               (dom/style
-                {:display         "flex"
-                 :width           "600px"
-                 :justify-content "space-between"})
-               (sb/SuperButton.
-                (e/fn []
-                  (reset! !item-type :drink))
-                (e/fn []
-                  (dom/text "Drink"))
-                {:margin "10px"
-                 :width  "200px"
-                 :height "196px"})
-               (sb/SuperButton.
-                (e/fn []
-                  (reset! !item-type :treat))
-                (e/fn []
-                  (dom/text "Treat"))
-                {:margin "10px"
-                 :width  "200px"
-                 :height "196px"})))))
+    (dom/div
+      (DrinkSizeSelector.)
+      (dom/div
+        (dom/props {:class "menu-grid"})
+        (e/server
+          (e/for-by :id [menu-item menu/items]
+            (e/client
+              (sb/SuperButton.
+               (e/fn []
+                 (case (:category menu-item)
+                   "drink" (reset! !drink (as-drink menu-item))
+                   "treat" (swap! !cart update-cart menu-item inc)))
+               (e/fn []
+                 (dom/text (:name menu-item)))
+               {:margin "10px"}))))))))
 
 (defn add-in-name
   [id]
@@ -296,23 +235,6 @@
   (println @!cart)
   (swap! !cart dissoc k))
 
-
-(def section-text-shadow (str "1px 1px 2px " (color/color :highlight) ", -1px -1px 2px " (color/color :shadow)))
-(def section-box-shadow  (str "inset 5px 5px 10px " (color/color :shadow) ", inset -5px -5px 10px " (color/color :highlight)))
-
-(def section-style
-  {:margin-top    "20px"
-   :margin-bottom "20px"
-   :color         (color/color :text)
-   :text-shadow   section-text-shadow
-   :background    (color/color :base)
-   :border-radius "10px"
-   :padding       "10px"
-   :overflow-y    "auto"
-   :max-height    "300px"
-   :max-width     "800px"
-   :box-shadow    section-box-shadow})
-
 (defn empty-cart!
   [!cart]
   (reset! !cart {}))
@@ -320,7 +242,8 @@
 (e/defn Section
   [BodyContent & [style]]
   (dom/div
-    (dom/style (merge section-style style))
+    (dom/props {:class "section"})
+    (dom/style style)
     (dom/div
       (BodyContent.))))
 
@@ -362,11 +285,6 @@
               (dom/text "remove"))
             {:height "50px"})))))))
 
-#?(:cljs
-   (defn notify!
-     [message]
-     (state/update-db! [:notification] message)))
-
 (e/defn CurrentOrder
   [!cart]
   (let [cart (e/watch !cart)]
@@ -390,7 +308,7 @@
                                        (e/client @!cart))
                        :order-id order-number})
                (e/client
-                 (notify! (str "Order " (e/server order-number) " placed successfully!"))))))
+                 (notification/notify! (str "Order " (e/server order-number) " placed successfully!"))))))
          (e/client
            (reset! !cart {})))
        (e/fn []
@@ -434,7 +352,7 @@
     (dom/h2
       (dom/text "Customize " drink-name))
     (dom/div
-      (dom/style grid-style)
+      (dom/props {:class "menu-grid"})
       (e/server
         (e/for-by :id [add-in menu/add-ins]
           (e/client
@@ -479,55 +397,34 @@
 
 (e/defn Logo []
   (dom/div
-    (dom/style
-     {:display         "flex"
-      :justify-content "space-between"
-      :align-items     "center"
-      :padding         "10px"})
+    (dom/props
+     {:class "logo-container"})
     (dom/div
       (dom/img
         (dom/props
-         {:src "/images/logo.png"
-          :style {:width  "200px"
-                  :height "auto"}})))))
-
-(e/defn NavTabs
-  [!cart !drink]
-  (tabs/TabContainer.
-   {"New Order"
-    (e/fn []
-      (Menu. !cart !drink)
-      (CurrentOrder. !cart))
-    "Placed Order"
-    (e/fn []
-      (PlacedOrders.))}))
-
-(def navbar-style
-  {:background-color (color/color :base)
-   :box-shadow       style/box-shadow
-   :display          "flex"
-   :justify-content  "space-between"
-   :align-items      "center"
-   :padding          "20px"})
+         {:src   "/images/logo.png"
+          :class "logo"})))))
 
 (e/defn point-of-sale []
   (e/client
     (dom/div
-      (dom/style
-       {:background-color (color/color :base)})
       (dom/div
-        (dom/style navbar-style)
+        (dom/props {:class "navbar"})
         (Logo.))
-      (dom/div
-        (dom/style
-         {:display          "flex"
-          :justify-content  "center"})
-        (let [!cart  (atom {})
-              !drink (atom nil)
-              drink  (e/watch !drink)
-              db     (e/watch state/!db)]
-          (if drink
-            (CustomizeDrink. !cart !drink drink)
-            (dom/div
-              (NavTabs. !cart !drink)
-              (Notification. db))))))))
+      (let [!cart  (atom {})
+            !drink (atom nil)
+            drink  (e/watch !drink)]
+        (dom/div
+          (dom/props
+           {:class "main-section"})
+          (dom/div
+            (dom/props
+             {:class "section-1"})
+            (if drink
+              (CustomizeDrink. !cart !drink drink)
+              (Menu. !cart !drink)))
+          (dom/div
+            (dom/props
+             {:class "section-2"})
+            (CurrentOrder. !cart))
+          (notification/Notification.))))))
