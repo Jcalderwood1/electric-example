@@ -6,19 +6,20 @@
    [hyperfiddle.electric-dom2 :as dom]
    [hyperfiddle.electric-ui4 :as ui]))
 
-(e/defn Notification
-  []
-  (let [db (e/watch state/!db)
-        notification (:notification db)]
-    (when notification
-      (dom/div
-        (dom/props {:class "notification"})
-        (dom/text notification)
-        (sb/SuperButton.
-         (e/fn [] (e/client (state/update-db! [:notification] nil)))
-         (e/fn [] (dom/text "Dismiss")))))))
+#?(:cljs
+   (e/def notification (:notification state/db)))
 
 #?(:cljs
    (defn notify!
      [message]
-     (state/update-db! [:notification] message)))
+     (state/assoc-in-db! [:notification] message)))
+
+(e/defn Notification []
+  (when notification
+    (dom/div
+      (dom/props
+       {:class "notification"})
+      (dom/text notification)
+      (sb/SuperButton.
+       (e/fn [] (notify! nil))
+       (e/fn [] (dom/text "Dismiss"))))))

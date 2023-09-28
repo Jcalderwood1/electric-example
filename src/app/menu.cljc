@@ -7,7 +7,10 @@
    {:id "4" :name "Sprite"          :category "drink"}
    {:id "5" :name "Mountain Dew"    :category "drink"}
    {:id "6" :name "Sparkling Water" :category "drink"}
-   {:id "8" :name "Pretzel"         :category "treat"}
+   {:id "7" :name "Fresca"          :category "drink"}
+   {:id "8" :name "Pepsi"           :category "drink"}
+
+   #_#_{:id "8" :name "Pretzel"         :category "treat"}
    {:id "9" :name "Popcorn"         :category "treat"}])
 
 (def add-ins

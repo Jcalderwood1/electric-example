@@ -1,7 +1,5 @@
 (ns app.super-button
   (:require
-   [app.color :as color]
-   [app.style :as style]
    [hyperfiddle.electric :as e]
    [hyperfiddle.electric-dom2 :as dom]
    [hyperfiddle.electric-ui4 :as ui]))

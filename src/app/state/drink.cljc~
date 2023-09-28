@@ -1,0 +1,13 @@
+(ns app.state.drink
+  (:require
+   [app.state :as state]
+   [hyperfiddle.electric :as e]))
+
+(defn as-drink
+  [menu-item]
+  (assoc menu-item :add-ins {}))
+
+#?(:cljs
+   (defn foo []
+     (state/assoc-in-db! [:current-order :drink]
+                         (as-drink menu-item))))
