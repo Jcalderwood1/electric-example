@@ -8,8 +8,10 @@
    [app.state :as state]
    [app.state.cart :as cart-state]
    [app.state.drink :as drink-state]
+   [app.state.order :as order]
    [app.super-button :as sb]
    [app.style :as style]
+   [app.tabs :as tabs]
    [hyperfiddle.electric :as e]
    [hyperfiddle.electric-dom2 :as dom]
    [hyperfiddle.electric-ui4 :as ui]))
@@ -41,21 +43,25 @@
 
 (e/defn NameInput []
   (e/client
-    (new InputSubmit state/set-customer-name!)))
+    (dom/div
+      (dom/props
+       {:class "name-input"})
+      (new InputSubmit state/set-customer-name!))))
 
 (e/defn RadioOption
-  [id label f]
+  [name id label f]
   (dom/div
     (dom/props
      {:class "wrapper"})
     (dom/input
       (dom/props
-       {:class "state"
-        :type  "radio"
-        :name  "app"
-        :id    id
-        :value id})
-      (dom/on "change" (e/fn [_] (f id))))
+       {:class   "state"
+        :type    "radio"
+        :name    name
+        :id      id
+        :value   id
+        :checked (= id 16)})
+      (dom/on "change" (e/fn [_] (f))))
     (dom/label
       (dom/props
        {:class "label" :for id})
@@ -70,9 +76,12 @@
 (e/defn DrinkSizeSelector []
   (dom/div
     (dom/props
-     {:class "radiogroup"})
-    (e/for-by identity [size [16 24 32 44]]
-      (new RadioOption size size drink-state/set-drink-size!))))
+     {:class "drink-size-selector"})
+    (dom/div
+      (dom/props
+       {:class "radiogroup"})
+      (e/for-by identity [size [16 24 32 44]]
+        (new RadioOption "DrinkSizeSelector" size size #(drink-state/set-drink-size! size))))))
 
 (e/defn Section
   [BodyContent & [style]]
@@ -134,7 +143,7 @@
                       {:items    (mapv (comp :item second) (e/client cart))
                        :order-id order-number})
                (e/client
-                 (state/set-customer-name! nil)
+                 (order/reset-order!)
                  (notification/notify! (str "Order " (e/server order-number) " placed successfully!"))))))
          (e/client
            (cart-state/empty-cart!)))
@@ -146,7 +155,6 @@
 (e/defn PlacedOrders []
   (new Section
        (e/fn []
-         (println "orders" orders)
          (when (not-empty orders)
            (e/for-by :order-id [{:keys [order-id items]} orders]
              (new card/Card
@@ -176,54 +184,57 @@
 (e/defn Menu []
   (let [!customize? (atom false)
         customize?  (e/watch !customize?)
-        close-fn    #(reset! !customize? false)]
-    (if customize?
-      (new CustomizeDrink close-fn)
+        close       #(reset! !customize? false)]
+    (dom/div
+      (dom/style
+       {:max-width "800px"})
+      (new DrinkSizeSelector)
       (dom/div
-        (new DrinkSizeSelector)
+        (dom/props
+         {:class "menu"})
         (dom/div
-          (dom/props {:class "menu-grid"})
+          (dom/props
+           {:class "radiogroup"})
           (e/server
             (e/for-by :id [menu-item menu/items]
               (e/client
-                (new sb/SuperButton
-                     (e/fn []
-                       (case (:category menu-item)
-                         "drink" (do
-                                   (drink-state/new-drink! menu-item drink-state/size)
-                                   (reset! !customize? true))
-                         "treat" (cart-state/inc-cart-item-qty! menu-item)))
-                     (e/fn []
-                       (dom/text (:name menu-item)))
-                     {:margin "10px"})))))))))
+                (new RadioOption
+                     "Menu"
+                     (:id menu-item)
+                     (:name menu-item)
+                     (fn []
+                       (reset! !customize? true)
+                       (drink-state/set-drink! (assoc menu-item :size drink-state/size)))))))))
+      (when customize?
+        (new CustomizeDrink close)))))
 
 (e/defn AddInEditor
   [drink]
   (e/for-by first [[id add-in] (:add-ins drink)]
     (e/client
       (new card/Card
-       (e/fn []
-         (new QuantityWidget
-          (:quantity add-in)
-          (e/fn []
-            (e/client
-              (drink-state/inc-add-in-qty! id)))
-          (e/fn []
-            (e/client
-              (drink-state/dec-add-in-qty! id))))
-         (dom/text
-          (e/server (add-in-name id)))
-         (dom/div
-           (new sb/SuperButton
-                (e/fn []
-                  (e/client
-                    (drink-state/remove-add-in! id)))
-                (e/fn []
-                  (dom/text "remove"))
-                {:height "50px"})))
-       {:display         "flex"
-        :align-items     "center"
-        :justify-content "space-between"}))))
+           (e/fn []
+             (new QuantityWidget
+                  (:quantity add-in)
+                  (e/fn []
+                    (e/client
+                      (drink-state/inc-add-in-qty! id)))
+                  (e/fn []
+                    (e/client
+                      (drink-state/dec-add-in-qty! id))))
+             (dom/text
+              (e/server (add-in-name id)))
+             (dom/div
+               (new sb/SuperButton
+                    (e/fn []
+                      (e/client
+                        (drink-state/remove-add-in! id)))
+                    (e/fn []
+                      (dom/text "remove"))
+                    {:height "50px"})))
+           {:display         "flex"
+            :align-items     "center"
+            :justify-content "space-between"}))))
 
 (e/defn AddInList
   [drink]
@@ -341,20 +352,26 @@
 (e/defn point-of-sale []
   (e/client
     (dom/div
-      (dom/div
-        (dom/props {:class "navbar"})
-        (new Logo)
-        (new NameInput))
+      (dom/props
+       {:class "navbar"})
+      (new Logo))
+    (if (empty? order/current-order)
       (dom/div
         (dom/props
-         {:class "main-section"})
+         {:class "name-input-layout"})
+        (new NameInput))
+      (dom/div
         (dom/div
           (dom/props
-           {:class "section-1"})
-          (new Menu)
-          (new PlacedOrders))
-        (dom/div
-          (dom/props
-           {:class "section-2"})
-          (new CurrentOrder))
-        (new notification/Notification)))))
+           {:class "main-section"})
+          (dom/text state/customer-name)
+          (dom/div
+            (dom/props
+             {:class "section-1"})
+            (new Menu)
+            #_(new PlacedOrders))
+          (dom/div
+            (dom/props
+             {:class "section-2"})
+            (new CurrentOrder))
+          (new notification/Notification))))))

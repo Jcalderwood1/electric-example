@@ -70,7 +70,7 @@
 #?(:cljs
    (defn reset-drink! []
      (state/assoc-in-db! [:current-order :drink]
-                         nil)))
+                         {:size 16})))
 
 #?(:cljs
    (defn set-drink-size!
@@ -83,3 +83,21 @@
 
 #?(:cljs
    (e/def drink (get-in state/db [:current-order :drink])))
+
+#?(:cljs
+   (defn set-drink-name!
+     [name]
+     (state/assoc-in-db! [:current-order :drink :name]
+                         name)))
+
+#?(:cljs
+   (e/def name (get-in state/db [:current-order :drink :name])))
+
+#?(:cljs
+   (e/def id (get-in state/db [:current-order :drink :id])))
+
+#?(:cljs
+   (defn set-drink!
+     [drink]
+     (state/assoc-in-db! [:current-order :drink]
+                         drink)))

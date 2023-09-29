@@ -1,17 +1,14 @@
 (ns app.menu)
 
 (def items
-  [{:id "1" :name "Dr. Pepper"      :category "drink"}
-   {:id "2" :name "Coke"            :category "drink"}
-   {:id "3" :name "Diet Coke"       :category "drink"}
-   {:id "4" :name "Sprite"          :category "drink"}
-   {:id "5" :name "Mountain Dew"    :category "drink"}
-   {:id "6" :name "Sparkling Water" :category "drink"}
-   {:id "7" :name "Fresca"          :category "drink"}
-   {:id "8" :name "Pepsi"           :category "drink"}
-
-   #_#_{:id "8" :name "Pretzel"         :category "treat"}
-   {:id "9" :name "Popcorn"         :category "treat"}])
+  [{:id "1", :name "Coke",            :category "drink"}
+   {:id "2", :name "Diet Coke",       :category "drink"}
+   {:id "3", :name "Dr. Pepper",      :category "drink"}
+   {:id "4", :name "Fresca",          :category "drink"}
+   {:id "5", :name "Mountain Dew",    :category "drink"}
+   {:id "6", :name "Pepsi",           :category "drink"}
+   {:id "7", :name "Sparkling Water", :category "drink"}
+   {:id "8", :name "Sprite",          :category "drink"}])
 
 (def add-ins
   [{:id "1"  :name "Coconut"}

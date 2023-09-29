@@ -18,7 +18,9 @@
       "drink" (and (= (:id menu-item)
                       (:id cart-item))
                    (= (:add-ins menu-item)
-                      (:add-ins cart-item)))
+                      (:add-ins cart-item))
+                   (= (:size menu-item)
+                      (:size cart-item)))
       "treat" (= (:id menu-item)
                  (:id cart-item)))))
 
